@@ -1,6 +1,6 @@
 CC=gcc
 
-CFLAGS=-Wall -Wextra -pedantic -fstack-protector-all -pedantic -std=c99 -lpthread
+CFLAGS=-Wall -Wextra -pedantic -fstack-protector-all -pedantic -std=c99 -pthread
 SANITY_FLAGS=-Wfloat-equal -Wshadow -Wpointer-arith
 
 PREFIX ?= /usr
