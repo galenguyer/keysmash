@@ -42,8 +42,7 @@ void* client_handler(void* client_fd_ptr) {
 	// Convert the void pointer input to an int for the client file descriptor
 	int client_fd = *(int*) client_fd_ptr;
 	// Create the response and request buffers
-	char *response, request[65535];
-	response = "\0";
+	char response[65535], request[65535];
 	// Read the input into the request buffer and print it
 	int read_length = recv(client_fd, request, 65535, 0);
 	request[read_length] = '\0';
@@ -59,20 +58,20 @@ void* client_handler(void* client_fd_ptr) {
 	// Check that we're getting a GET request to the index route, else return a 404
 	if (strcmp("GET", req.method) == 0) {
 		if(strcmp("/", req.path) == 0) {
-			response = "HTTP/1.1 200 OK\r\n"
+			sprintf(response, "HTTP/1.1 200 OK\r\n"
 				"Server: c/1.0\r\n"
 				"Content-Type: text/plain\r\n"
 				"\r\n"
-				":ok:\r\n";
+				"%s\r\n", keysmash(16));
 		}
 	}
 	// Set a 404 if none of the methods match
 	if (strlen(response) <= 1) {
-		response = "HTTP/1.1 404 Not Found\r\n"
+		sprintf(response, "HTTP/1.1 404 Not Found\r\n"
 			"Server: c/1.0\r\n"
 			"Content-Type: text/plain\r\n"
 			"\r\n"
-			"F\r\n";
+			"404 git gud\r\n");
 	}
 	// Send the response and close the socket
 	send(client_fd, response, strlen(response), 0);
