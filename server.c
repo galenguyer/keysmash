@@ -8,6 +8,7 @@
 #include <sys/types.h>	// Not strictly needed, but potentially required for BSD
 #include <netinet/in.h>	// sockaddr_in
 #include <pthread.h>
+#include <stddef.h>
 
 #include "keysmash.h"
 
@@ -17,6 +18,7 @@ const int BACKLOG = 1024;
 struct request {
 	char method[8];
 	char path[2048];
+	char query[2048];
 };
 
 void request_init(struct request* req) {
@@ -33,9 +35,45 @@ void request_parse(struct request* req, const char* data) {
 	req->method[strlen(ptr)] = '\0';
 
 	// Copy the HTTP path to the request struct
-	ptr = strtok(NULL, " ");
-	strcpy(req->path, ptr);
-	req->path[strlen(ptr)] = '\0';
+	char* fullpath = strtok(NULL, "\n");
+	fullpath[strlen(fullpath)-strlen(" HTTP/1.1\n")] = '\0';
+
+	char *query = strtok(fullpath, "?");
+	query = strtok(NULL, "?");
+	strcpy(req->path, fullpath);
+	req->path[strlen(fullpath)] = '\0';
+
+	query = strtok(query, "?");
+	if (query != NULL) {
+		strcpy(req->query, query);
+		req->query[strlen(query)] = '\0';
+	}
+	else {
+		req->query[0] = '\0';
+	}
+}
+
+char* get_req_arg(const char* query, const char* arg) {
+	// We definitely won't find the argument if there's no query string
+	if (strlen(query) == 0) { 
+		return NULL;
+	}
+	// Create an internal copy of the query string
+	char iquery[2048];
+	strcpy(iquery, query);
+
+	char *ptr = strtok(iquery, "&");
+	// if there's only one or no query parameters
+	while (ptr != NULL) {
+		char iptr[2048];
+		strcpy(iptr, ptr);
+		char* key = strtok(iptr, "=");
+		if (strcmp(key, arg) == 0) {
+			return strtok(NULL, "=");
+		}
+		ptr = strtok(NULL, "&");
+	}
+	return NULL;
 }
 
 void* client_handler(void* client_fd_ptr) {
@@ -53,7 +91,14 @@ void* client_handler(void* client_fd_ptr) {
 	request_parse(&req, request);
 
 	// print the request data
-	printf("request{method:'%s', path:'%s'}\n", req.method, req.path);
+	printf("request{method:'%s', path:'%s', query:'%s'}\n", req.method, req.path, req.query);
+	int length = 16;
+	char* strlength = get_req_arg(req.query, "length");
+	if (strlength != NULL) {
+		if (atoi(strlength) > 0) {
+			length = atoi(strlength);
+		}
+	}
 
 	// Check that we're getting a GET request to the index route, else return a 404
 	if (strcmp("GET", req.method) == 0) {
@@ -62,7 +107,7 @@ void* client_handler(void* client_fd_ptr) {
 				"Server: c/1.0\r\n"
 				"Content-Type: text/plain\r\n"
 				"\r\n"
-				"%s\r\n", keysmash(16));
+				"%s\r\n", keysmash(length));
 		}
 	}
 	// Set a 404 if none of the methods match
