@@ -20,7 +20,7 @@ void* client_handler(void* client_fd_ptr) {
 	// Read the input into the request buffer and print it
 	int read_length = recv(client_fd, request, 65535, 0);
 	request[read_length] = '\0';
-	printf("%s\n", request);
+	printf("%s", request);
 
 	// Check that we're getting a GET request to the index route, else return a 404
 	if (strncmp("GET / ", request, strlen("GET / ")) == 0) {
