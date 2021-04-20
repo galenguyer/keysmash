@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 char* keysmash(int length) {
     char keys[] = { 'a', 's', 'd', 'f', 'j', 'k', 'l', 'a', 's', 'd', 'f', 'j', 'k', 'l', ';' };
@@ -15,11 +14,4 @@ char* keysmash(int length) {
         strncat(smash, &keys[rand() % 15], 1);
     }
     return smash;
-}
-
-int main() {
-    srand(time(0));
-    char* smash = keysmash(16);
-    printf("%s\n", smash);
-    return 0;
 }

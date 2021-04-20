@@ -9,6 +9,8 @@
 #include <netinet/in.h>	// sockaddr_in
 #include <pthread.h>
 
+#include "keysmash.h"
+
 const int PORT = 8080;
 const int BACKLOG = 1024;
 
@@ -58,7 +60,7 @@ void* client_handler(void* client_fd_ptr) {
 	if (strcmp("GET", req.method) == 0) {
 		if(strcmp("/", req.path) == 0) {
 			response = "HTTP/1.1 200 OK\r\n"
-				"Server: fuck-you/1.0\r\n"
+				"Server: c/1.0\r\n"
 				"Content-Type: text/plain\r\n"
 				"\r\n"
 				":ok:\r\n";
@@ -67,7 +69,7 @@ void* client_handler(void* client_fd_ptr) {
 	// Set a 404 if none of the methods match
 	if (strlen(response) <= 1) {
 		response = "HTTP/1.1 404 Not Found\r\n"
-			"Server: fuck-you/1.0\r\n"
+			"Server: c/1.0\r\n"
 			"Content-Type: text/plain\r\n"
 			"\r\n"
 			"F\r\n";

@@ -8,8 +8,5 @@ PREFIX ?= /usr
 debug: CFLAGS += -g -O0
 release: CFLAGS += -static -O3
 
-server: server.c
-	$(CC) -o $@ $(CFLAGS) $(SANITY_FLAGS) $<
-
-smash: keysmash.c
+server: server.c keysmash.c
 	$(CC) -o $@ $(CFLAGS) $(SANITY_FLAGS) $<

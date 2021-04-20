@@ -1,0 +1,1 @@
+char* keysmash(int length);
