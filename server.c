@@ -12,6 +12,17 @@
 const int PORT = 8080;
 const int BACKLOG = 1024;
 
+struct request { 
+	char path[2048];
+};
+
+void request_init(struct request* req) {
+}
+
+void request_parse(struct request* req, char* data) {
+	printf("%s", data);
+}
+
 void* client_handler(void* client_fd_ptr) {
 	// Convert the void pointer input to an int for the client file descriptor
 	int client_fd = *(int*) client_fd_ptr;
@@ -20,7 +31,10 @@ void* client_handler(void* client_fd_ptr) {
 	// Read the input into the request buffer and print it
 	int read_length = recv(client_fd, request, 65535, 0);
 	request[read_length] = '\0';
-	printf("%s", request);
+
+	struct request req;
+	request_init(&req);
+	request_parse(&req, request);
 
 	// Check that we're getting a GET request to the index route, else return a 404
 	if (strncmp("GET / ", request, strlen("GET / ")) == 0) {
