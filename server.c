@@ -12,15 +12,28 @@
 const int PORT = 8080;
 const int BACKLOG = 1024;
 
-struct request { 
+struct request {
+	char method[8];
 	char path[2048];
 };
 
 void request_init(struct request* req) {
 }
 
-void request_parse(struct request* req, char* data) {
-	printf("%s", data);
+void request_parse(struct request* req, const char* data) {
+	// Make a copy of the request data for internal use
+	char idata[65535];
+	strcpy(idata, data);
+
+	// Copy the HTTP method to the request struct
+	char *ptr = strtok(idata, " ");
+	strcpy(req->method, ptr);
+	req->method[strlen(ptr)] = '\0';
+
+	// Copy the HTTP path to the request struct
+	ptr = strtok(NULL, " ");
+	strcpy(req->path, ptr);
+	req->path[strlen(ptr)] = '\0';
 }
 
 void* client_handler(void* client_fd_ptr) {
@@ -28,28 +41,36 @@ void* client_handler(void* client_fd_ptr) {
 	int client_fd = *(int*) client_fd_ptr;
 	// Create the response and request buffers
 	char *response, request[65535];
+	response = "\0";
 	// Read the input into the request buffer and print it
 	int read_length = recv(client_fd, request, 65535, 0);
 	request[read_length] = '\0';
 
+	// Initialize a request struct and parse the request data into it
 	struct request req;
 	request_init(&req);
 	request_parse(&req, request);
 
+	// print the request data
+	printf("request{method:'%s', path:'%s'}\n", req.method, req.path);
+
 	// Check that we're getting a GET request to the index route, else return a 404
-	if (strncmp("GET / ", request, strlen("GET / ")) == 0) {
-		response = "HTTP/1.1 200 OK\r\n"
-			"Server: fuck-you/1.0\r\n"
-			"Content-Type: text/plain\r\n"
-			"\r\n"
-			":ok:\r\n";	
+	if (strcmp("GET", req.method) == 0) {
+		if(strcmp("/", req.path) == 0) {
+			response = "HTTP/1.1 200 OK\r\n"
+				"Server: fuck-you/1.0\r\n"
+				"Content-Type: text/plain\r\n"
+				"\r\n"
+				":ok:\r\n";
+		}
 	}
-	else {
+	// Set a 404 if none of the methods match
+	if (strlen(response) <= 1) {
 		response = "HTTP/1.1 404 Not Found\r\n"
 			"Server: fuck-you/1.0\r\n"
 			"Content-Type: text/plain\r\n"
 			"\r\n"
-			"F\r\n";	
+			"F\r\n";
 	}
 	// Send the response and close the socket
 	send(client_fd, response, strlen(response), 0);
