@@ -92,17 +92,17 @@ void* client_handler(void* client_fd_ptr) {
 
 	// print the request data
 	printf("request{method:'%s', path:'%s', query:'%s'}\n", req.method, req.path, req.query);
-	int length = 16;
-	char* strlength = get_req_arg(req.query, "length");
-	if (strlength != NULL) {
-		if (atoi(strlength) > 0) {
-			length = atoi(strlength);
-		}
-	}
 
 	// Check that we're getting a GET request to the index route, else return a 404
 	if (strcmp("GET", req.method) == 0) {
 		if(strcmp("/", req.path) == 0) {
+			int length = 16;
+			char* strlength = get_req_arg(req.query, "length");
+			if (strlength != NULL) {
+				if (atoi(strlength) > 0) {
+					length = atoi(strlength);
+				}
+			}
 			sprintf(response, "HTTP/1.1 200 OK\r\n"
 				"Server: c/1.0\r\n"
 				"Content-Type: text/plain\r\n"
