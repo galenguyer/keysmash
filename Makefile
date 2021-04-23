@@ -14,7 +14,7 @@ ALL: $(OUTPUT)
 debug: CFLAGS += -g -O0
 debug: $(OUTPUT)
 
-release: CFLAGS += -static -O3
+release: CFLAGS += -static -Os -s
 release: $(OUTPUT)
 
 $(OUTPUT): Makefile $(SOURCE)
