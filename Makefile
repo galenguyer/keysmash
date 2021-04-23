@@ -14,7 +14,7 @@ ALL: $(OUTPUT)
 debug: CFLAGS += -g -O0
 debug: $(OUTPUT)
 
-release: CFLAGS += -static -Os -s
+release: CFLAGS += -static -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections -fomit-frame-pointer
 release: $(OUTPUT)
 
 $(OUTPUT): Makefile $(SOURCE)
