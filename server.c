@@ -1,7 +1,6 @@
 #include <fcntl.h>
 #include <netinet/in.h> // sockaddr_in
 #include <pthread.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,116 +9,33 @@
 #include <sys/types.h>  // Not strictly needed, but potentially required for BSD
 #include <unistd.h>
 
-#include "keysmash.h"
-
 const int PORT = 8080;
 const int BACKLOG = 1024;
 
-struct request {
-    char method[8];
-    char path[2048];
-    char query[2048];
-};
-
-void request_init(struct request* req) {}
-
-void request_parse(struct request* req, const char* data) {
-    // Make a copy of the request data for internal use
-    char idata[65535];
-    strcpy(idata, data);
-
-    // Copy the HTTP method to the request struct
-    char* ptr = strtok(idata, " ");
-    strcpy(req->method, ptr);
-    req->method[strlen(ptr)] = '\0';
-
-    // Copy the HTTP path to the request struct
-    char* fullpath = strtok(NULL, "\n");
-    fullpath[strlen(fullpath) - strlen(" HTTP/1.1\n")] = '\0';
-
-    char* query = strtok(fullpath, "?");
-    query = strtok(NULL, "?");
-    strcpy(req->path, fullpath);
-    req->path[strlen(fullpath)] = '\0';
-
-    query = strtok(query, "?");
-    if (query != NULL) {
-        strcpy(req->query, query);
-        req->query[strlen(query)] = '\0';
-    } else {
-        req->query[0] = '\0';
-    }
-}
-
-char* get_req_arg(const char* query, const char* arg) {
-    // We definitely won't find the argument if there's no query string
-    if (strlen(query) == 0) {
-        return NULL;
-    }
-    // Create an internal copy of the query string
-    char iquery[2048];
-    strcpy(iquery, query);
-
-    char* ptr = strtok(iquery, "&");
-    // if there's only one or no query parameters
-    while (ptr != NULL) {
-        char iptr[2048];
-        strcpy(iptr, ptr);
-        char* key = strtok(iptr, "=");
-        if (strcmp(key, arg) == 0) {
-            return strtok(NULL, "=");
-        }
-        ptr = strtok(NULL, "&");
-    }
-    return NULL;
-}
-
-void* client_handler() {
+void* client_handler(void* client_fd_ptr) {
     // Convert the void pointer input to an int for the client file descriptor
-    // int client_fd = *(int*)client_fd_ptr;
-    int client_fd = 4;
+    int client_fd = *(int*)client_fd_ptr;
     // Create the response and request buffers
-    char response[65535], request[65535];
+    char *response, request[65535];
     // Read the input into the request buffer and print it
     int read_length = recv(client_fd, request, 65535, 0);
     request[read_length] = '\0';
-
-    // Initialize a request struct and parse the request data into it
-    struct request req;
-    request_init(&req);
-    request_parse(&req, request);
-
-    // print the request data
-    printf("request{method:'%s', path:'%s', query:'%s'}\n", req.method,
-           req.path, req.query);
+    printf("%s\n", request);
 
     // Check that we're getting a GET request to the index route, else return a
     // 404
-    if (strcmp("GET", req.method) == 0) {
-        if (strcmp("/", req.path) == 0) {
-            int length = 16;
-            char* strlength = get_req_arg(req.query, "length");
-            if (strlength != NULL) {
-                if (atoi(strlength) > 0) {
-                    length = atoi(strlength);
-                }
-            }
-            sprintf(response,
-                    "HTTP/1.1 200 OK\r\n"
-                    "Server: c/1.0\r\n"
-                    "Content-Type: text/plain\r\n"
-                    "\r\n"
-                    "%s\r\n",
-                    keysmash(length));
-        }
-    }
-    // Set a 404 if none of the methods match
-    if (strlen(response) <= 1) {
-        sprintf(response, "HTTP/1.1 404 Not Found\r\n"
-                          "Server: c/1.0\r\n"
-                          "Content-Type: text/plain\r\n"
-                          "\r\n"
-                          "404 git gud\r\n");
+    if (strncmp("GET / ", request, strlen("GET / ")) == 0) {
+        response = "HTTP/1.1 200 OK\r\n"
+                   "Server: fuck-you/1.0\r\n"
+                   "Content-Type: text/plain\r\n"
+                   "\r\n"
+                   ":ok:\r\n\n";
+    } else {
+        response = "HTTP/1.1 404 Not Found\r\n"
+                   "Server: fuck-you/1.0\r\n"
+                   "Content-Type: text/plain\r\n"
+                   "\r\n"
+                   "F\r\n";
     }
     // Send the response and close the socket
     send(client_fd, response, strlen(response), 0);
@@ -235,8 +151,9 @@ int main() {
      * NULL. If addr is NULL, addrlen should be NULL as well. the accept() call
      * will block until a client connects
      */
+    int client_fd, client_addr_len;
     struct sockaddr_in client_addr;
-    int client_addr_len = sizeof(client_addr);
+    client_addr_len = sizeof(client_addr);
     pthread_t thread_id;
 
     /*
@@ -250,21 +167,18 @@ int main() {
      * empty client address and addrlen is the length of that struct. accept
      * returns the client socket file descriptor if successful, or -1 on failure
      */
-    int* client_fd_ptr;
-    while (1) {
-        client_fd_ptr = malloc(sizeof(int));
-        *client_fd_ptr = accept(server_fd, (struct sockaddr*)&client_addr, (socklen_t*)&client_addr_len);
-        if (*client_fd_ptr < 0) {
+    while ((client_fd = accept(server_fd, (struct sockaddr*)&client_addr,
+                               (socklen_t*)&client_addr_len))) {
+        if (client_fd < 0) {
             perror("Error accepting new connection");
             continue;
         }
-        printf("fd %d at %p\n", *client_fd_ptr, (void*)client_fd_ptr);
+
         /*
          * pthread_create is defined by the following method:
          * 	#include <pthread.h>
          * 	int pthread_create(pthread_t *thread, const pthread_attr_t
-         * *attr, void
-         * *(*start_routine) (void *), void *arg);
+         * *attr, void *(*start_routine) (void *), void *arg);
          *
          * thread is a pointer to an empty pthread_t that allows future actions
          * like join() on the thread. start_routine is a method to run in the
@@ -272,7 +186,8 @@ int main() {
          * returns -1 on failure To compile and link it with the pthread
          * library, use the -pthread flag with gcc
          */
-        if (pthread_create(&thread_id, NULL, client_handler, NULL) < 0) {
+        if (pthread_create(&thread_id, NULL, client_handler,
+                           (void*)&client_fd) < 0) {
             perror("Error creating handler thread");
         }
     }
