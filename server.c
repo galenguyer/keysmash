@@ -4,13 +4,46 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/socket.h> // socket
 #include <sys/types.h>  // Not strictly needed, but potentially required for BSD
 #include <unistd.h>
 
 const int PORT = 8080;
 const int BACKLOG = 1024;
+
+struct request {
+    char method[8];
+    char path[2048];
+    char query[2048];
+};
+
+void request_parse(struct request* req, const char* data) {
+    // Make a copy of the request data for internal use
+    char idata[65535];
+    strcpy(idata, data);
+
+    // Copy the HTTP method to the request struct
+    char* ptr = strtok(idata, " ");
+    strcpy(req->method, ptr);
+    req->method[strlen(ptr)] = '\0';
+
+    // Copy the HTTP path to the request struct
+    char* fullpath = strtok(NULL, "\n");
+    fullpath[strlen(fullpath) - strlen(" HTTP/1.1\n")] = '\0';
+
+    char* query = strtok(fullpath, "?");
+    query = strtok(NULL, "?");
+    strcpy(req->path, fullpath);
+    req->path[strlen(fullpath)] = '\0';
+
+    query = strtok(query, "?");
+    if (query != NULL) {
+        strcpy(req->query, query);
+        req->query[strlen(query)] = '\0';
+    } else {
+        req->query[0] = '\0';
+    }
+}
 
 void* client_handler(void* client_fd_ptr) {
     // Convert the void pointer input to an int for the client file descriptor
@@ -21,6 +54,13 @@ void* client_handler(void* client_fd_ptr) {
     // Read the input into the request buffer and print it
     int read_length = recv(client_fd, request, 65535, 0);
     request[read_length] = '\0';
+
+    struct request* req = malloc(sizeof(struct request));
+    request_parse(req, request);
+
+    // print the request data
+    printf("request{method:'%s', path:'%s', query:'%s'}\n", req->method,
+           req->path, req->query);
 
     // Check that we're getting a GET request to the index route, else return a
     // 404

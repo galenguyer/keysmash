@@ -1,7 +1,7 @@
 CC=musl-gcc
 
 CFLAGS=-Wall -Wextra -pedantic -fstack-protector-all -Wstack-protector -pedantic -std=c99 -pthread -static
-SANITY_FLAGS=-Wfloat-equal -Wshadow -Wpointer-arith 
+SANITY_FLAGS=-Wfloat-equal -Wshadow -Wpointer-arith
 
 PREFIX ?= /usr
 
