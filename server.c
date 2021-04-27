@@ -15,12 +15,12 @@ const int BACKLOG = 1024;
 void* client_handler(void* client_fd_ptr) {
     // Convert the void pointer input to an int for the client file descriptor
     int client_fd = *(int*)client_fd_ptr;
+    free(client_fd_ptr);
     // Create the response and request buffers
     char *response, request[65535];
     // Read the input into the request buffer and print it
     int read_length = recv(client_fd, request, 65535, 0);
     request[read_length] = '\0';
-    printf("%s\n", request);
 
     // Check that we're getting a GET request to the index route, else return a
     // 404
@@ -151,10 +151,9 @@ int main() {
      * NULL. If addr is NULL, addrlen should be NULL as well. the accept() call
      * will block until a client connects
      */
-    int client_fd, client_addr_len;
+    int client_addr_len;
     struct sockaddr_in client_addr;
     client_addr_len = sizeof(client_addr);
-    pthread_t thread_id;
 
     /*
      * This continually spins off new threads for each request. Threading is
@@ -167,12 +166,22 @@ int main() {
      * empty client address and addrlen is the length of that struct. accept
      * returns the client socket file descriptor if successful, or -1 on failure
      */
-    while ((client_fd = accept(server_fd, (struct sockaddr*)&client_addr,
-                               (socklen_t*)&client_addr_len))) {
+    while (1) {
+        int client_fd = accept(server_fd, (struct sockaddr*)&client_addr,
+                               (socklen_t*)&client_addr_len);
         if (client_fd < 0) {
             perror("Error accepting new connection");
             continue;
         }
+
+        /*
+         * Make a copy of client_fd into a pointer that can be passed to the
+         * client_handler function. Without this, client_handler's internal
+         * client_fd will be overwritten if there are multiple concurrent
+         * requests.
+         */
+        int* client_fd_ptr = malloc(sizeof(int));
+        *client_fd_ptr = client_fd;
 
         /*
          * pthread_create is defined by the following method:
@@ -186,8 +195,9 @@ int main() {
          * returns -1 on failure To compile and link it with the pthread
          * library, use the -pthread flag with gcc
          */
+        pthread_t thread_id;
         if (pthread_create(&thread_id, NULL, client_handler,
-                           (void*)&client_fd) < 0) {
+                           (void*)client_fd_ptr) < 0) {
             perror("Error creating handler thread");
         }
     }
