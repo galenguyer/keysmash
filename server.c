@@ -62,20 +62,28 @@ void* client_handler(void* client_fd_ptr) {
     printf("request{method:'%s', path:'%s', query:'%s'}\n", req->method,
            req->path, req->query);
 
-    // Check that we're getting a GET request to the index route, else return a
-    // 404
-    if (strncmp("GET / ", request, strlen("GET / ")) == 0) {
-        response = "HTTP/1.1 200 OK\r\n"
-                   "Server: fuck-you/1.0\r\n"
-                   "Content-Type: text/plain\r\n"
-                   "\r\n"
-                   ":ok:\r\n\n";
+    // Check that we're getting a GET request to the index
+    // route, else return a 404
+    if (strcmp(req->method, "GET") == 0) {
+        if (strcmp(req->path, "/") == 0) {
+            response = "HTTP/1.1 200 OK\r\n"
+                       "Server: yeet/1.0\r\n"
+                       "Content-Type: text/plain\r\n"
+                       "\r\n"
+                       ":ok:\r\n";
+        } else {
+            response = "HTTP/1.1 404 Not Found\r\n"
+                       "Server: yeet/1.0\r\n"
+                       "Content-Type: text/plain\r\n"
+                       "\r\n"
+                       "Not Found\r\n";
+        }
     } else {
-        response = "HTTP/1.1 404 Not Found\r\n"
-                   "Server: fuck-you/1.0\r\n"
+        response = "HTTP/1.1 400 Bad Request\r\n"
+                   "Server: yeet/1.0\r\n"
                    "Content-Type: text/plain\r\n"
                    "\r\n"
-                   "F\r\n";
+                   "Bad Request\r\n";
     }
     // Send the response and close the socket
     send(client_fd, response, strlen(response), 0);
