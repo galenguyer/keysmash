@@ -1,6 +1,6 @@
 #include <fcntl.h>
 #include <netinet/in.h> // sockaddr_in
-#include <pthread.h>
+//#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,6 +47,29 @@ void request_parse(struct request* req, const char* data) {
     }
 }
 
+char* get_req_arg(const char* query, const char* arg) {
+	// We definitely won't find the argument if there's no query string
+	if (strlen(query) == 0) { 
+		return NULL;
+	}
+	// Create an internal copy of the query string
+	char iquery[2048];
+	strcpy(iquery, query);
+
+	char *ptr = strtok(iquery, "&");
+	// if there's only one or no query parameters
+	while (ptr != NULL) {
+		char iptr[2048];
+		strcpy(iptr, ptr);
+		char* key = strtok(iptr, "=");
+		if (strcmp(key, arg) == 0) {
+			return strtok(NULL, "=");
+		}
+		ptr = strtok(NULL, "&");
+	}
+	return NULL;
+}
+
 void* client_handler(void* client_fd_ptr) {
     // Convert the void pointer input to an int for the client file descriptor
     int client_fd = *(int*)client_fd_ptr;
@@ -68,8 +91,19 @@ void* client_handler(void* client_fd_ptr) {
     // route, else return a 404
     if (strcmp(req->method, "GET") == 0) {
         if (strcmp(req->path, "/") == 0) {
-            response = malloc(sizeof(char) * (256 + 16));
-            char* ks = keysmash(16);
+            int length = 16;
+			char* strlength = get_req_arg(req->query, "length");
+			if (strlength != NULL) {
+				if (atoi(strlength) > 0) {
+					length = atoi(strlength);
+				}
+			}
+            if (length > 128) { 
+                length = 128;
+            }
+            free(strlength);
+            response = malloc(sizeof(char) * (256 + length));
+            char* ks = keysmash(length);
             sprintf(response, "HTTP/1.1 200 OK\r\n"
                               "Server: yeet/1.0\r\n"
                               "Content-Type: text/plain\r\n"
@@ -92,6 +126,7 @@ void* client_handler(void* client_fd_ptr) {
     // Send the response and close the socket
     send(client_fd, response, strlen(response), 0);
     close(client_fd);
+    free(response);
     return NULL;
 }
 
