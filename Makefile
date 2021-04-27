@@ -1,7 +1,7 @@
-CC=gcc
+CC=musl-gcc
 
-CFLAGS=-Wall -Wextra -pedantic -fstack-protector-all -pedantic -std=c99 -pthread
-SANITY_FLAGS=-Wfloat-equal -Wshadow -Wpointer-arith
+CFLAGS=-Wall -Wextra -pedantic -fstack-protector-all -Wstack-protector -pedantic -std=c99 -pthread -static
+SANITY_FLAGS=-Wfloat-equal -Wshadow -Wpointer-arith 
 
 PREFIX ?= /usr
 
@@ -11,7 +11,7 @@ OUTPUT=server
 
 ALL: $(OUTPUT)
 
-debug: CFLAGS += -g -O0
+debug: CFLAGS += -g3 -O0 -fno-omit-frame-pointer
 debug: $(OUTPUT)
 
 release: CFLAGS += -static -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections -fomit-frame-pointer
