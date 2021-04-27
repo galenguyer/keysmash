@@ -1,5 +1,5 @@
 FROM debian:buster-slim AS builder
-RUN apt-get update --yes && apt-get install make gcc --yes
+RUN apt-get update --yes && apt-get install make gcc musl musl-tools --yes
 
 WORKDIR /usr/src/keysmash
 COPY . .
