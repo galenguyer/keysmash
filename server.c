@@ -11,6 +11,8 @@
 const int PORT = 8080;
 const int BACKLOG = 1024;
 
+#include "keysmash.h"
+
 struct request {
     char method[8];
     char path[2048];
@@ -59,18 +61,20 @@ void* client_handler(void* client_fd_ptr) {
     request_parse(req, request);
 
     // print the request data
-    printf("request{method:'%s', path:'%s', query:'%s'}\n", req->method,
-           req->path, req->query);
+    //printf("request{method:'%s', path:'%s', query:'%s'}\n", req->method,
+      //     req->path, req->query);
 
     // Check that we're getting a GET request to the index
     // route, else return a 404
     if (strcmp(req->method, "GET") == 0) {
         if (strcmp(req->path, "/") == 0) {
-            response = "HTTP/1.1 200 OK\r\n"
-                       "Server: yeet/1.0\r\n"
-                       "Content-Type: text/plain\r\n"
-                       "\r\n"
-                       ":ok:\r\n";
+            response = malloc(sizeof(char) * (256 + 16));
+            char* ks = keysmash(16);
+            sprintf(response, "HTTP/1.1 200 OK\r\n"
+                              "Server: yeet/1.0\r\n"
+                              "Content-Type: text/plain\r\n"
+                              "\r\n"
+                              "%s\r\n", ks);
         } else {
             response = "HTTP/1.1 404 Not Found\r\n"
                        "Server: yeet/1.0\r\n"
@@ -230,6 +234,7 @@ int main() {
          */
         int* client_fd_ptr = malloc(sizeof(int));
         *client_fd_ptr = client_fd;
+        client_handler(client_fd_ptr);
 
         /*
          * pthread_create is defined by the following method:
@@ -242,12 +247,13 @@ int main() {
          * thread and arg is an argument to pass into the thread pthread_create
          * returns -1 on failure To compile and link it with the pthread
          * library, use the -pthread flag with gcc
-         */
+         *
         pthread_t thread_id;
         if (pthread_create(&thread_id, NULL, client_handler,
                            (void*)client_fd_ptr) < 0) {
             perror("Error creating handler thread");
         }
+        */
     }
     return 0;
 }
