@@ -7,6 +7,8 @@
 #include <sys/socket.h> // socket
 #include <sys/types.h>  // Not strictly needed, but potentially required for BSD
 #include <unistd.h>
+#include <assert.h>
+#include <time.h>
 
 const int PORT = 8080;
 const int BACKLOG = 1024;
@@ -19,32 +21,44 @@ struct request {
     char query[2048];
 };
 
-void request_parse(struct request* req, const char* data) {
+#define RESPONSE_TEMPLATE_MACRO "HTTP/1.1 200 OK\r\n"\
+        "Server: yeet/1.0\r\n"\
+        "Content-Type: text/plain\r\n\r\n"
+/* We don't want to actually save the null byte */
+char RESPONSE_TEMPLATE[sizeof(RESPONSE_TEMPLATE_MACRO) - 1] = RESPONSE_TEMPLATE_MACRO;
+
+#define MIN(one, two) (((one) < (two)) ? (one) : (two))
+
+int request_parse(struct request* req, const char* data) {
     // Make a copy of the request data for internal use
     char idata[65535];
-    strcpy(idata, data);
+    strncpy(idata, data, sizeof(idata) - 1);
+    idata[sizeof(idata) - 1] = 0;
 
     // Copy the HTTP method to the request struct
     char* ptr = strtok(idata, " ");
-    strcpy(req->method, ptr);
-    req->method[strlen(ptr)] = '\0';
+    if (!ptr) return 1;
+    strncpy(req->method, ptr, sizeof(req->method));
+    req->method[MIN(strlen(ptr), sizeof(req->method) - 1)] = '\0';
 
     // Copy the HTTP path to the request struct
     char* fullpath = strtok(NULL, "\n");
-    fullpath[strlen(fullpath) - strlen(" HTTP/1.1\n")] = '\0';
+    if (!fullpath) return 1;
+    fullpath[strlen(fullpath) - (sizeof(" HTTP/1.1\n") - 1)] = '\0';
 
     char* query = strtok(fullpath, "?");
     query = strtok(NULL, "?");
-    strcpy(req->path, fullpath);
-    req->path[strlen(fullpath)] = '\0';
+    strncpy(req->path, fullpath, sizeof(req->path) - 1);
+    req->path[MIN(strlen(fullpath), sizeof(req->path) - 1)] = '\0';
 
     query = strtok(query, "?");
     if (query != NULL) {
-        strcpy(req->query, query);
-        req->query[strlen(query)] = '\0';
+        strncpy(req->query, query, sizeof(req->query) - 1);
+        req->query[MIN(strlen(query), sizeof(req->query) - 1)] = '\0';
     } else {
         req->query[0] = '\0';
     }
+    return 0;
 }
 
 char* get_req_arg(const char* query, const char* arg) {
@@ -54,13 +68,15 @@ char* get_req_arg(const char* query, const char* arg) {
 	}
 	// Create an internal copy of the query string
 	char iquery[2048];
-	strcpy(iquery, query);
+  memcpy(&iquery[0], query, sizeof(iquery));
 
 	char *ptr = strtok(iquery, "&");
 	// if there's only one or no query parameters
 	while (ptr != NULL) {
 		char iptr[2048];
-		strcpy(iptr, ptr);
+		strncpy(iptr, ptr, sizeof(iptr) - 1);
+    // strncpy may not place a null byte at the end
+    iptr[2047] = 0;
 		char* key = strtok(iptr, "=");
 		if (strcmp(key, arg) == 0) {
 			return strtok(NULL, "=");
@@ -76,39 +92,51 @@ void* client_handler(void* client_fd_ptr) {
     free(client_fd_ptr);
     // Create the response and request buffers
     char *response, request[65535];
+    int response_dynamic = 0;
     // Read the input into the request buffer and print it
     int read_length = recv(client_fd, request, 65535, 0);
     request[read_length] = '\0';
 
     struct request* req = malloc(sizeof(struct request));
-    request_parse(req, request);
+    // Failed, might not be HTTP:
+    if (request_parse(req, request)) {
+        response = "HTTP/1.1 400 Bad Request\r\n"
+                   "Server: yeet/1.0\r\n"
+                   "Content-Type: text/plain\r\n"
+                   "\r\n"
+                   "Bad Request\r\n";
+        goto cleanup;
+    }
 
     // print the request data
-    //printf("request{method:'%s', path:'%s', query:'%s'}\n", req->method,
-      //     req->path, req->query);
+    // printf("request{method:'%s', path:'%s', query:'%s'}\n", req->method,
+    //        req->path, req->query);
 
     // Check that we're getting a GET request to the index
     // route, else return a 404
-    if (strcmp(req->method, "GET") == 0) {
-        if (strcmp(req->path, "/") == 0) {
+    // We hardcode lengths here because strlen is slow
+    if (strncmp(req->method, "GET", 4) == 0) {
+        if (strncmp(req->path, "/", 2) == 0) {
             int length = 16;
-			char* strlength = get_req_arg(req->query, "length");
-			if (strlength != NULL) {
-				if (atoi(strlength) > 0) {
-					length = atoi(strlength);
-				}
-			}
+            char* strlength = get_req_arg(req->query, "length");
+            if (strlength != NULL) {
+                if (atoi(strlength) > 0) {
+                    length = atoi(strlength);
+                }
+            }
             if (length > 128) { 
                 length = 128;
             }
-            free(strlength);
-            response = malloc(sizeof(char) * (256 + length));
+            response = malloc(sizeof(char) * (sizeof(RESPONSE_TEMPLATE) + length + 4));
             char* ks = keysmash(length);
-            sprintf(response, "HTTP/1.1 200 OK\r\n"
-                              "Server: yeet/1.0\r\n"
-                              "Content-Type: text/plain\r\n"
-                              "\r\n"
-                              "%s\r\n", ks);
+            memcpy(response, &RESPONSE_TEMPLATE, sizeof(RESPONSE_TEMPLATE));
+            memcpy(response + sizeof(RESPONSE_TEMPLATE), ks, length);
+            memcpy(response + sizeof(RESPONSE_TEMPLATE) + length + 1, "\r\n\0", 3);
+            // Make sure to free!! Don't leak memory!
+            if (length != 1) {
+                free(ks);
+            }
+            response_dynamic = 1;
         } else {
             response = "HTTP/1.1 404 Not Found\r\n"
                        "Server: yeet/1.0\r\n"
@@ -123,14 +151,19 @@ void* client_handler(void* client_fd_ptr) {
                    "\r\n"
                    "Bad Request\r\n";
     }
+cleanup:
     // Send the response and close the socket
     send(client_fd, response, strlen(response), 0);
     close(client_fd);
-    free(response);
+    if (response_dynamic) {
+        free(response);
+    }
+    free(req);
     return NULL;
 }
 
 int main() {
+    srandom(time(NULL));
     /*
      * Create the server socket
      * The call for socket is as follows:
