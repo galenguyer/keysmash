@@ -33,7 +33,7 @@ int request_parse(struct request* req, const char* data) {
     // Make a copy of the request data for internal use
     char idata[65535];
     strncpy(idata, data, sizeof(idata) - 1);
-    idata[sizeof(idata) - 1] = 0;
+    idata[sizeof(idata) - 1] = '\0';
 
     // Copy the HTTP method to the request struct
     char* ptr = strtok(idata, " ");
