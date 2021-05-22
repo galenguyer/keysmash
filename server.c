@@ -129,7 +129,7 @@ void* client_handler(void* client_fd_ptr) {
             }
             response = malloc(sizeof(char) * (sizeof(RESPONSE_TEMPLATE) + length + 4));
             memcpy(response, &RESPONSE_TEMPLATE, sizeof(RESPONSE_TEMPLATE));
-            memcpy(response + sizeof(RESPONSE_TEMPLATE) + length + 1, "\r\n\0", 3);
+            memcpy(response + sizeof(RESPONSE_TEMPLATE) + length, "\r\n\0", 3);
             keysmash(response + sizeof(RESPONSE_TEMPLATE), length);
 
             response_dynamic = 1;
