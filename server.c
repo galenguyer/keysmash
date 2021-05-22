@@ -25,7 +25,7 @@ struct request {
         "Server: yeet/1.0\r\n"\
         "Content-Type: text/plain\r\n\r\n"
 /* We don't want to actually save the null byte */
-char RESPONSE_TEMPLATE[sizeof(RESPONSE_TEMPLATE_MACRO) - 1] = RESPONSE_TEMPLATE_MACRO;
+const char RESPONSE_TEMPLATE[sizeof(RESPONSE_TEMPLATE_MACRO) - 1] = RESPONSE_TEMPLATE_MACRO;
 
 #define MIN(one, two) (((one) < (two)) ? (one) : (two))
 
@@ -128,14 +128,10 @@ void* client_handler(void* client_fd_ptr) {
                 length = 128;
             }
             response = malloc(sizeof(char) * (sizeof(RESPONSE_TEMPLATE) + length + 4));
-            char* ks = keysmash(length);
             memcpy(response, &RESPONSE_TEMPLATE, sizeof(RESPONSE_TEMPLATE));
-            memcpy(response + sizeof(RESPONSE_TEMPLATE), ks, length);
             memcpy(response + sizeof(RESPONSE_TEMPLATE) + length + 1, "\r\n\0", 3);
-            // Make sure to free!! Don't leak memory!
-            if (length != 1) {
-                free(ks);
-            }
+            keysmash(response + sizeof(RESPONSE_TEMPLATE), length);
+
             response_dynamic = 1;
         } else {
             response = "HTTP/1.1 404 Not Found\r\n"

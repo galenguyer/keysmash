@@ -1,1 +1,1 @@
-char* keysmash(int length);
+void keysmash(char* output, unsigned length);
