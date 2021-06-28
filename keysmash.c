@@ -1,17 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
-char* keysmash(int length) {
-    char keys[] = { 'a', 's', 'd', 'f', 'j', 'k', 'l', 'a', 's', 'd', 'f', 'j', 'k', 'l', ';' };
-    length -= 2;
-    char* smash = (char*)malloc(sizeof(char)*1000);
-    smash[0] = 'a';
-    smash[1] = 's';
-    smash[2] = '\0';
-    while (length > 0) {
-        length -= 1;
-        strncat(smash, &keys[rand() % 15], 1);
+void keysmash(char* output, unsigned length) {
+    char keys[16] = { 'a', 's', 'd', 'f', 'g', 'j', 'k', 'l', 'a', 's', 'd', 'f', 'j', 'k', 'l', ';' };
+    // Special case for this, otherwise we're writing out of bounds!
+    if (length == 1) {
+        output[0] = 'a';
+        return;
     }
-    return smash;
+    output[0] = 'a';
+    output[1] = 's';
+    while (length != 2) {
+        // random() is a 32 bit int. we have 16 possibilities:
+        output[--length] = keys[random() & 15];
+    }
 }
